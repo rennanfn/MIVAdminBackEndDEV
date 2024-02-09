@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Config
+clusters:
+- name: "cdc-k8s-v4"
+  cluster:
+    server: "https://k8s.casadiconti.com/k8s/clusters/c-m-frbqn74t"
+
+users:
+- name: "cdc-k8s-v4"
+  user:
+    token: "kubeconfig-user-xs5rcp8nst:lq8kbpd2xwc7vlgcksdxklwxnv6tl876vmkvlq746p65zrpgvwhxjl"
+
+
+contexts:
+- name: "cdc-k8s-v4"
+  context:
+    user: "cdc-k8s-v4"
+    cluster: "cdc-k8s-v4"
+
+current-context: "cdc-k8s-v4"

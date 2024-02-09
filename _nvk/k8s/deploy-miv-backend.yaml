@@ -1,0 +1,125 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: miv
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-backend-beta
+  namespace: 	miv   ### where prod is the name of the namespace #
+  labels:
+    app: api-backend-beta
+spec:
+  securityContext:
+    fsGroup: 2000
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-backend-beta
+  template:
+    metadata:
+      labels:
+        app: api-backend-beta
+    spec:
+      containers:
+      - name: api-backend-beta
+        image: novakio/miv:backendbeta1
+#        command:
+#          - /bin/sh
+#          - -c 
+#          - "chown -R root:root /app/src/storage" 
+        imagePullPolicy: Always
+#        livenessProbe:      ## nova implementação, recurso que faz o check da api no api/teams e se der 404 vai recriar o container
+#          httpGet:
+#            path: /
+#            port: 3333
+#            httpHeaders:
+#            - name: X-Custom-Header
+#              value: Awesome
+#          initialDelaySeconds: 3     ## quanto tempo vai durar a checagem
+#          periodSeconds: 30     ## qual o intervalo que vai fazer a checagem       
+#          successThreshold: 1
+#          failureThreshold: 2
+#          timeoutSeconds: 5
+        ports:
+        - containerPort: 3333
+        resources:
+#          limits: 
+#            memory: "1Gi"
+#            cpu: "1"
+          requests:
+            cpu: "0.3"
+            memory: "1Gi" 
+        volumeMounts:
+        - name: vol-miv-new
+          mountPath: /app/src/storage
+      volumes:
+      - name: vol-miv-new
+        persistentVolumeClaim:
+          claimName: vol-miv-new
+      imagePullSecrets:
+      - name: docker-hub-novakio
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-backend-beta
+  namespace: 	miv  ## where prod is the name of the namespace
+  labels:
+    app: api-backend-beta
+spec:
+  type: NodePort
+  selector: 
+    app: api-backend-beta
+  ports:
+    - port: 8651
+      protocol: TCP
+      targetPort: 3333  ### porta do container / aplicação 
+      nodePort: 31989
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-backend-beta
+  namespace: 	miv   ### where prod is the name of the namespace
+  annotations:
+#    ingress.kubernetes.io/rewrite-target: /
+    nginx.org/proxy-connect-timeout: "3000s"
+    nginx.org/proxy-read-timeout: "2000s"
+    nginx.org/client-max-body-size: "200m"
+    nginx.ingress.kubernetes.io/proxy-body-size: 200m
+#    nginx.ingress.kubernetes.io/enable-cors: "true"
+#    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "PUT, PATCH, GET, POST, OPTIONS, DELETE"
+#    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,X-LANG,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,X-Api-Key,X-Device-Id,Access-Control-Allow-Origin"
+#    kubernetes.io/ingress.class: nginx
+#    cert-manager.io/cluster-issuer: letsencrypt-prod   
+  labels:
+    app: api-backend-beta
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: miv-api.casadiconti.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: api-backend-beta
+            port:
+              number: 8651
+        path: /
+        pathType: Prefix
+#  tls:
+#    - hosts:
+#      - miv-beta.casadiconti.com
+#      secretName: beta-eks-front
